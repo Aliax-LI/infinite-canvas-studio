@@ -20,6 +20,12 @@ if (!hasSingleInstanceLock) {
   app.quit();
 }
 
+function getApplicationIconPath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "icon.png")
+    : path.join(__dirname, "../resources/icon.png");
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -27,6 +33,7 @@ function createMainWindow() {
     minWidth: 1024,
     minHeight: 720,
     show: false,
+    icon: getApplicationIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -125,6 +132,10 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(() => {
+  if (process.platform === "darwin" && !app.isPackaged) {
+    app.dock?.setIcon(getApplicationIconPath());
+  }
+
   registerDesktopHandlers();
   createMainWindow();
 
