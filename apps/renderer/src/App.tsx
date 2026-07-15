@@ -296,6 +296,11 @@ function App() {
         onCreate={() => void createProject()}
         onProjectNameChange={setProjectName}
         onRetry={() => void connectToLibrary()}
+        onConfigureLibrary={() => {
+          setLibraryBootstrap(null);
+          setRuntime({ status: "starting" });
+          void initializeDesktop();
+        }}
       />
       <CanvasBoard
         project={selectedProject}

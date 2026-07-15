@@ -1,18 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
-import type { IpcMainInvokeEvent } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { LibraryBootstrap, RuntimeDescriptor } from "@ics/contracts";
-import { validateHttpsUrl, validateStorageDirectory } from "@ics/contracts";
 
-import { desktopChannels } from "./channels";
-import {
-  inspectStorageDirectory,
-  loadLibraryBootstrap,
-  saveLibraryRoot,
-} from "./library-config";
-import { isTrustedRendererUrl, requiresExternalConfirmation } from "./security";
+import { loadLibraryBootstrap } from "./library-config";
+import { isTrustedRendererUrl } from "./security";
 import { SidecarSupervisor } from "./sidecar";
+import { registerDesktopHandlers } from "./desktop-handlers";
 
 let mainWindow: BrowserWindow | null = null;
 let rendererEntryUrl: string | null = null;
@@ -81,16 +75,6 @@ function createMainWindow() {
   void mainWindow.loadURL(rendererEntryUrl);
 }
 
-function assertTrustedSender(event: IpcMainInvokeEvent): void {
-  if (
-    !event.senderFrame ||
-    !rendererEntryUrl ||
-    !isTrustedRendererUrl(event.senderFrame.url, rendererEntryUrl)
-  ) {
-    throw new Error("拒绝来自非受信任页面的桌面能力请求。");
-  }
-}
-
 function getSupportedPlatform(): RuntimeDescriptor["platform"] {
   if (process.platform === "darwin" || process.platform === "win32") {
     return process.platform;
@@ -119,104 +103,6 @@ async function startConfiguredSidecar(): Promise<void> {
   await sidecar.start(libraryBootstrap.location.path);
 }
 
-/**
- * Schema-validated wrapper for storage directory parameters.
- * Rejects with a clear ProblemDetail-style error if validation fails.
- */
-function parseStorageDirectory(value: unknown): string {
-  const result = validateStorageDirectory(value);
-  if (!result.ok) {
-    throw new Error(`无效的资料库路径：${result.code}`);
-  }
-  return result.value;
-}
-
-function registerDesktopHandlers() {
-  ipcMain.handle(desktopChannels.getRuntime, (event) => {
-    assertTrustedSender(event);
-    return {
-      protocolVersion: 1,
-      appVersion: app.getVersion(),
-      platform: getSupportedPlatform(),
-      backend: sidecar.getRuntime(),
-    } satisfies RuntimeDescriptor;
-  });
-
-  ipcMain.handle(desktopChannels.getLibraryBootstrap, (event) => {
-    assertTrustedSender(event);
-    return libraryBootstrap;
-  });
-
-  ipcMain.handle(desktopChannels.selectStorageDirectory, async (event) => {
-    assertTrustedSender(event);
-    const result = await dialog.showOpenDialog({
-      defaultPath:
-        libraryBootstrap.status === "ready"
-          ? libraryBootstrap.location.path
-          : libraryBootstrap.recommended.path,
-      properties: ["openDirectory", "createDirectory"],
-    });
-    return result.canceled ? null : result.filePaths[0];
-  });
-
-  ipcMain.handle(
-    desktopChannels.inspectStorageDirectory,
-    async (event, value: unknown) => {
-      assertTrustedSender(event);
-      const directory = parseStorageDirectory(value);
-      try {
-        return await inspectStorageDirectory(directory);
-      } catch {
-        return null;
-      }
-    },
-  );
-
-  ipcMain.handle(
-    desktopChannels.configureStorageDirectory,
-    async (event, value: unknown) => {
-      assertTrustedSender(event);
-      const directory = parseStorageDirectory(value);
-
-      const location = await saveLibraryRoot(
-        getBootstrapConfigurationPath(),
-        directory,
-      );
-      await sidecar.stop();
-      libraryBootstrap = { status: "ready", location };
-      await startConfiguredSidecar();
-      return libraryBootstrap;
-    },
-  );
-
-  ipcMain.handle(
-    desktopChannels.openExternal,
-    async (event, value: unknown) => {
-      assertTrustedSender(event);
-      const parsed = validateHttpsUrl(value);
-      if (!parsed.ok) {
-        throw new Error(`无效的外部链接：${parsed.code}`);
-      }
-      const url = new URL(parsed.value);
-
-      if (requiresExternalConfirmation(url)) {
-        const { response } = await dialog.showMessageBox({
-          type: "warning",
-          message: `即将在系统浏览器中打开 ${url.hostname}`,
-          detail: url.toString(),
-          buttons: ["取消", "继续打开"],
-          defaultId: 0,
-          cancelId: 0,
-        });
-        if (response !== 1) return false;
-      }
-
-      await shell.openExternal(url.toString());
-      return true;
-    },
-  );
-}
-
 app.on("second-instance", () => {
   if (!mainWindow) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
@@ -229,7 +115,22 @@ app.whenReady().then(async () => {
     app.dock?.setIcon(getApplicationIconPath());
   }
 
-  registerDesktopHandlers();
+  registerDesktopHandlers({
+    ipcMain,
+    dialog,
+    shell,
+    sidecar,
+    refreshBootstrap: refreshLibraryBootstrap,
+    getBootstrapConfigurationPath,
+    getRecommendedLibraryPath,
+    getLibraryBootstrap: () => libraryBootstrap,
+    setLibraryBootstrap: (value) => {
+      libraryBootstrap = value;
+    },
+    getRendererEntryUrl: () => rendererEntryUrl,
+    getAppVersion: () => app.getVersion(),
+    getSupportedPlatform,
+  });
   await refreshLibraryBootstrap();
   await startConfiguredSidecar();
   createMainWindow();

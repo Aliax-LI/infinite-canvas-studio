@@ -15,6 +15,7 @@ export function ProjectPanel({
   onCreate,
   onProjectNameChange,
   onRetry,
+  onConfigureLibrary,
 }: {
   projects: ProjectSummary[];
   selectedProjectId: string | null;
@@ -28,6 +29,7 @@ export function ProjectPanel({
   onCreate: () => void;
   onProjectNameChange: (name: string) => void;
   onRetry: () => void;
+  onConfigureLibrary: () => void;
 }) {
   return (
     <aside
@@ -111,14 +113,24 @@ export function ProjectPanel({
             role="alert"
           >
             <p>{errorMessage}</p>
-            <Button
-              className="mt-3 rounded-sm"
-              size="sm"
-              variant="outline"
-              onClick={onRetry}
-            >
-              重新连接
-            </Button>
+            <div className="mt-3 flex gap-2">
+              <Button
+                className="rounded-sm"
+                size="sm"
+                variant="outline"
+                onClick={onRetry}
+              >
+                重新连接
+              </Button>
+              <Button
+                className="rounded-sm"
+                size="sm"
+                variant="ghost"
+                onClick={onConfigureLibrary}
+              >
+                重新配置资料库
+              </Button>
+            </div>
           </div>
         )}
       </div>
