@@ -24,10 +24,10 @@
 
 目标：打通“Electron → sidecar → SQLite → React”的最小真实数据流。
 
-- [ ] 实现 sidecar supervisor：随机端口、临时令牌、健康检查、限次重启和优雅退出。
+- [x] 实现 sidecar supervisor：随机端口、临时令牌、健康检查、限次重启和优雅退出。
 - [ ] 建立受限 preload API 与 IPC 参数校验。
 - [ ] 建立 FastAPI 鉴权、中间件、统一错误、SSE/WebSocket 基础设施。
-- [ ] 引入 SQLAlchemy、Alembic 和首个 schema；只允许 Python 访问数据库。
+- [x] 引入 SQLAlchemy、Alembic 和首个 schema；只允许 Python 访问数据库。
 - [ ] 首次启动确认资料库、缺失恢复页、单实例锁和安全退出。
 - [ ] CI 打包 PyInstaller sidecar 并随 Electron 安装包运行。
 

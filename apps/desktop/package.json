@@ -6,11 +6,11 @@
   "author": "Infinite Canvas Studio contributors",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "concurrently -k \"tsc -w --preserveWatchOutput\" \"wait-on dist/main.js tcp:5173 && cross-env ICS_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
+    "dev": "pnpm build && concurrently -k \"tsc -p tsconfig.main.json -w --preserveWatchOutput\" \"esbuild src/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/preload.js --watch\" \"wait-on dist/main.js dist/preload.js tcp:5173 && cross-env ICS_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
     "build": "tsc -p tsconfig.json && esbuild src/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/preload.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "oxlint src",
-    "test": "pnpm build && node --test dist/security.test.js",
+    "test": "pnpm build && node --test dist/security.test.js dist/library-config.test.js",
     "package:win": "electron-builder --win nsis zip --x64 --publish never",
     "package:mac": "electron-builder --mac dmg zip --arm64 --publish never"
   },

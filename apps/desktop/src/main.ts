@@ -2,17 +2,29 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import type { IpcMainInvokeEvent } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { RuntimeDescriptor } from "@ics/contracts";
+import type { LibraryBootstrap, RuntimeDescriptor } from "@ics/contracts";
 
 import { desktopChannels } from "./channels";
+import {
+  inspectStorageDirectory,
+  loadLibraryBootstrap,
+  saveLibraryRoot,
+} from "./library-config";
 import {
   isTrustedRendererUrl,
   parseHttpsExternalUrl,
   requiresExternalConfirmation,
 } from "./security";
+import { SidecarSupervisor } from "./sidecar";
 
 let mainWindow: BrowserWindow | null = null;
 let rendererEntryUrl: string | null = null;
+let libraryBootstrap: LibraryBootstrap;
+const sidecar = new SidecarSupervisor({
+  packaged: app.isPackaged,
+  resourcesPath: process.resourcesPath,
+  desktopDistPath: __dirname,
+});
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -34,6 +46,12 @@ function createMainWindow() {
     minHeight: 720,
     show: false,
     icon: getApplicationIconPath(),
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      color: "#ffffff",
+      symbolColor: "#151922",
+      height: 44,
+    },
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -41,6 +59,9 @@ function createMainWindow() {
       sandbox: true,
     },
   });
+
+  mainWindow.setMenuBarVisibility(false);
+  mainWindow.setAutoHideMenuBar(true);
 
   mainWindow.once("ready-to-show", () => mainWindow?.show());
 
@@ -80,6 +101,34 @@ function getSupportedPlatform(): RuntimeDescriptor["platform"] {
   throw new Error(`不支持的平台：${process.platform}`);
 }
 
+function getBootstrapConfigurationPath(): string {
+  return path.join(app.getPath("userData"), "library-bootstrap.json");
+}
+
+function getRecommendedLibraryPath(): string {
+  return path.join(app.getPath("documents"), "Infinite Canvas Studio");
+}
+
+async function refreshLibraryBootstrap(): Promise<LibraryBootstrap> {
+  libraryBootstrap = await loadLibraryBootstrap(
+    getBootstrapConfigurationPath(),
+    getRecommendedLibraryPath(),
+  );
+  return libraryBootstrap;
+}
+
+async function startConfiguredSidecar(): Promise<void> {
+  if (libraryBootstrap.status !== "ready") return;
+  await sidecar.start(libraryBootstrap.location.path);
+}
+
+function parseStorageDirectory(value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0 || value.length > 4_096) {
+    return null;
+  }
+  return value;
+}
+
 function registerDesktopHandlers() {
   ipcMain.handle(desktopChannels.getRuntime, (event) => {
     assertTrustedSender(event);
@@ -87,17 +136,58 @@ function registerDesktopHandlers() {
       protocolVersion: 1,
       appVersion: app.getVersion(),
       platform: getSupportedPlatform(),
-      backend: { status: "not-started" },
+      backend: sidecar.getRuntime(),
     } satisfies RuntimeDescriptor;
+  });
+
+  ipcMain.handle(desktopChannels.getLibraryBootstrap, (event) => {
+    assertTrustedSender(event);
+    return libraryBootstrap;
   });
 
   ipcMain.handle(desktopChannels.selectStorageDirectory, async (event) => {
     assertTrustedSender(event);
     const result = await dialog.showOpenDialog({
+      defaultPath:
+        libraryBootstrap.status === "ready"
+          ? libraryBootstrap.location.path
+          : libraryBootstrap.recommended.path,
       properties: ["openDirectory", "createDirectory"],
     });
     return result.canceled ? null : result.filePaths[0];
   });
+
+  ipcMain.handle(
+    desktopChannels.inspectStorageDirectory,
+    async (event, value: unknown) => {
+      assertTrustedSender(event);
+      const directory = parseStorageDirectory(value);
+      if (!directory) return null;
+      try {
+        return await inspectStorageDirectory(directory);
+      } catch {
+        return null;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    desktopChannels.configureStorageDirectory,
+    async (event, value: unknown) => {
+      assertTrustedSender(event);
+      const directory = parseStorageDirectory(value);
+      if (!directory) throw new Error("无效的资料库路径。");
+
+      const location = await saveLibraryRoot(
+        getBootstrapConfigurationPath(),
+        directory,
+      );
+      await sidecar.stop();
+      libraryBootstrap = { status: "ready", location };
+      await startConfiguredSidecar();
+      return libraryBootstrap;
+    },
+  );
 
   ipcMain.handle(
     desktopChannels.openExternal,
@@ -131,12 +221,14 @@ app.on("second-instance", () => {
   mainWindow.focus();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (process.platform === "darwin" && !app.isPackaged) {
     app.dock?.setIcon(getApplicationIconPath());
   }
 
   registerDesktopHandlers();
+  await refreshLibraryBootstrap();
+  await startConfiguredSidecar();
   createMainWindow();
 
   app.on("activate", () => {
@@ -146,4 +238,8 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+app.on("before-quit", () => {
+  void sidecar.stop();
 });
