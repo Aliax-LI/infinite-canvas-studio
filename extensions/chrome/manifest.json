@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Infinite Canvas Studio 采集器",
+  "version": "0.0.0",
+  "description": "按用户主动操作采集当前网页内容并发送到本机 Infinite Canvas Studio。",
+  "permissions": ["storage", "contextMenus", "sidePanel"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "采集到 Infinite Canvas Studio"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel.html"
+  }
+}

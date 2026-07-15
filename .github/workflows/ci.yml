@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/backend/pyproject.toml
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Python dependencies
+        run: python -m pip install -e './services/backend[dev]'
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint TypeScript
+        run: pnpm lint
+
+      - name: Type-check TypeScript
+        run: pnpm typecheck
+
+      - name: Test JavaScript packages
+        run: pnpm test
+
+      - name: Build JavaScript packages
+        run: pnpm build
+
+      - name: Validate feature parity matrix
+        run: pnpm parity:check
+
+      - name: Lint Python
+        run: python -m ruff check services/backend
+
+      - name: Test Python
+        run: python -m pytest services/backend/tests

@@ -1,0 +1,24 @@
+{
+  "name": "infinite-canvas-studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Infinite Canvas Studio desktop monorepo",
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k \"pnpm --filter @ics/renderer dev\" \"pnpm --filter @ics/desktop dev\"",
+    "build": "pnpm -r --if-present build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "parity:check": "node scripts/check-parity-matrix.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2"
+  }
+}

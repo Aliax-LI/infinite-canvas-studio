@@ -1,0 +1,88 @@
+{
+  "name": "@ics/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Infinite Canvas Studio Electron desktop shell",
+  "author": "Infinite Canvas Studio contributors",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"tsc -w --preserveWatchOutput\" \"wait-on dist/main.js tcp:5173 && cross-env ICS_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "oxlint src",
+    "package:win": "electron-builder --win nsis zip --x64 --publish never",
+    "package:mac": "electron-builder --mac dmg zip --arm64 --publish never"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
+    "oxlint": "^1.74.0",
+    "typescript": "~6.0.3",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "studio.infinitecanvas.desktop",
+    "productName": "Infinite Canvas Studio",
+    "asar": true,
+    "directories": {
+      "output": "../../release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../renderer/dist",
+        "to": "renderer"
+      },
+      {
+        "from": "../../dist/backend",
+        "to": "backend"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+  }
+}

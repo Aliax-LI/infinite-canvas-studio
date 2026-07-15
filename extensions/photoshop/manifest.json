@@ -1,0 +1,22 @@
+{
+  "manifestVersion": 5,
+  "id": "studio.infinitecanvas.photoshop",
+  "name": "Infinite Canvas Studio",
+  "version": "0.0.0",
+  "main": "src/index.html",
+  "host": [
+    {
+      "app": "PS",
+      "minVersion": "24.0.0"
+    }
+  ],
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "ics-panel",
+      "label": { "default": "Infinite Canvas Studio" },
+      "minimumSize": { "width": 280, "height": 360 },
+      "preferredDockedSize": { "width": 320, "height": 640 }
+    }
+  ]
+}

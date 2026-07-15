@@ -1,0 +1,168 @@
+name: Build desktop releases
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows-x64
+            package_command: pnpm --filter @ics/desktop package:win
+          - os: macos-15
+            label: macos-arm64
+            package_command: pnpm --filter @ics/desktop package:mac
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/backend/pyproject.toml
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Python dependencies
+        run: python -m pip install -e './services/backend[dev]'
+
+      - name: Run quality gates
+        shell: bash
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm parity:check
+          python -m ruff check services/backend
+          python -m pytest services/backend/tests
+
+      - name: Build Python sidecar
+        shell: bash
+        run: >-
+          python -m PyInstaller
+          --noconfirm
+          --clean
+          --onedir
+          --name ics-backend
+          --paths services/backend/src
+          --distpath dist/backend-build
+          --workpath build/pyinstaller
+          services/backend/entrypoint.py
+
+      - name: Stage Python sidecar on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p dist/backend
+          cp -R dist/backend-build/ics-backend/. dist/backend/
+
+      - name: Stage Python sidecar on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/backend | Out-Null
+          Copy-Item -Recurse -Force dist/backend-build/ics-backend/* dist/backend/
+
+      - name: Build renderer and desktop
+        run: pnpm build
+
+      - name: Package desktop app
+        run: ${{ matrix.package_command }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Generate checksums on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cd release
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS-*' -print0 \
+            | sort -z \
+            | xargs -0 shasum -a 256 > SHA256SUMS-macos-arm64.txt
+
+      - name: Generate checksums on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem release -File |
+            Where-Object { $_.Name -notlike 'SHA256SUMS-*' } |
+            Sort-Object Name |
+            ForEach-Object {
+              $hash = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower()
+              "$hash  $($_.Name)"
+            } | Set-Content -Encoding ascii release/SHA256SUMS-windows-x64.txt
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinite-canvas-studio-${{ matrix.label }}
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+            release/SHA256SUMS-*.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: infinite-canvas-studio-*
+          path: release
+
+      - name: Create release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_flags=(--generate-notes)
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            release_flags+=(--prerelease)
+          else
+            release_flags+=(--latest)
+          fi
+
+          gh release create "${GITHUB_REF_NAME}" \
+            release/infinite-canvas-studio-windows-x64/* \
+            release/infinite-canvas-studio-macos-arm64/* \
+            --title "Infinite Canvas Studio ${GITHUB_REF_NAME}" \
+            "${release_flags[@]}"
