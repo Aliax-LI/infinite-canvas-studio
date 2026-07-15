@@ -32,7 +32,27 @@ def test_rejects_blank_project_name(tmp_path) -> None:
     response = make_client(tmp_path).post("/v1/projects", headers=headers(), json={"name": "  "})
 
     assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "invalid_project_name"
+    body = response.json()
+    assert body["code"] == "invalid_project_name"
+    assert body["retryable"] is False
+
+
+def test_rejects_unauthorized_request(tmp_path) -> None:
+    client = make_client(tmp_path)
+    response = client.get("/v1/projects", headers={"x-ics-session-token": "wrong-token"})
+
+    assert response.status_code == 401
+    body = response.json()
+    assert body["code"] == "session_unauthorized"
+
+
+def test_rejects_malformed_request_body(tmp_path) -> None:
+    response = make_client(tmp_path).post("/v1/projects", headers=headers(), json={"name": 123})
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "request_invalid"
+    assert "details" in body
 
 
 def test_initialization_enables_sqlite_safety_pragmas_and_migration(tmp_path) -> None:

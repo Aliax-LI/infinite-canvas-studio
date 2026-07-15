@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from infinite_canvas_studio.modules.canvases import CanvasService, ProjectNotFoundError
+from infinite_canvas_studio.modules.canvases import CanvasService
 
 router = APIRouter(
     prefix="/v1/projects/{project_id}/canvases", tags=["canvases"]
@@ -30,10 +30,7 @@ class CanvasResponse(BaseModel):
 
 @router.get("", response_model=list[CanvasResponse])
 def list_canvases(project_id: str, request: Request) -> list[CanvasResponse]:
-    try:
-        canvases = get_service(request).list_canvases(project_id)
-    except ProjectNotFoundError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    canvases = get_service(request).list_canvases(project_id)
     return [CanvasResponse.model_validate(canvas) for canvas in canvases]
 
 
@@ -41,27 +38,14 @@ def list_canvases(project_id: str, request: Request) -> list[CanvasResponse]:
 def create_canvas(
     project_id: str, payload: CreateCanvasRequest, request: Request
 ) -> CanvasResponse:
-    try:
-        canvas = get_service(request).create_canvas(project_id, payload.name, payload.kind)
-    except ProjectNotFoundError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "invalid_canvas", "message": str(error), "retryable": False},
-        ) from error
+    canvas = get_service(request).create_canvas(project_id, payload.name, payload.kind)
     return CanvasResponse.model_validate(canvas)
 
 
 def get_service(request: Request) -> CanvasService:
     service = getattr(request.app.state, "canvas_service", None)
     if service is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={
-                "code": "library_unavailable",
-                "message": "资料库尚未配置。",
-                "retryable": True,
-            },
-        )
+        from infinite_canvas_studio.core.exceptions import LibraryUnavailableError
+
+        raise LibraryUnavailableError()
     return service

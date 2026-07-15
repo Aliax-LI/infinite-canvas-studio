@@ -19,7 +19,7 @@ def test_creates_lists_and_persists_project_canvases(tmp_path) -> None:
     smart = client.post(
         url,
         headers=headers,
-        json={"name": "灵感探索", "kind": "smart"},
+        json={"name": "感兴借借", "kind": "smart"},
     )
 
     assert standard.status_code == 201
@@ -31,7 +31,7 @@ def test_creates_lists_and_persists_project_canvases(tmp_path) -> None:
     assert listed.status_code == 200
     assert [(canvas["name"], canvas["kind"]) for canvas in listed.json()] == [
         ("产品草图", "standard"),
-        ("灵感探索", "smart"),
+        ("感兴借借", "smart"),
     ]
 
     restarted_client = TestClient(create_app(session_token=token, library_root=tmp_path))
@@ -55,4 +55,21 @@ def test_rejects_invalid_or_missing_canvas_parent(tmp_path) -> None:
     )
 
     assert missing.status_code == 404
+    assert missing.json()["code"] == "project_not_found"
     assert invalid.status_code == 404
+    assert invalid.json()["code"] == "project_not_found"
+
+
+def test_rejects_blank_canvas_name(tmp_path) -> None:
+    token = "test-session-token"
+    client = TestClient(create_app(session_token=token, library_root=tmp_path))
+    headers = {"x-ics-session-token": token}
+    project = client.get("/v1/projects", headers=headers).json()[0]
+    url = f"/v1/projects/{project['id']}/canvases"
+
+    response = client.post(url, headers=headers, json={"name": "  ", "kind": "standard"})
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "invalid_canvas_name"
+    assert body["retryable"] is False

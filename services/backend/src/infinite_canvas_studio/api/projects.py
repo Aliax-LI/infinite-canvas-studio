@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from infinite_canvas_studio.core.exceptions import ValidationError
 from infinite_canvas_studio.modules.projects import ProjectService
 
 router = APIRouter(prefix="/v1/projects", tags=["projects"])
@@ -33,22 +34,14 @@ def create_project(payload: CreateProjectRequest, request: Request) -> ProjectRe
     try:
         project = get_service(request).create_project(payload.name)
     except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "invalid_project_name", "message": str(error), "retryable": False},
-        ) from error
+        raise ValidationError(str(error), code="invalid_project_name") from error
     return ProjectResponse.model_validate(project)
 
 
 def get_service(request: Request) -> ProjectService:
     service = getattr(request.app.state, "project_service", None)
     if service is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={
-                "code": "library_unavailable",
-                "message": "资料库尚未配置。",
-                "retryable": True,
-            },
-        )
+        from infinite_canvas_studio.core.exceptions import LibraryUnavailableError
+
+        raise LibraryUnavailableError()
     return service

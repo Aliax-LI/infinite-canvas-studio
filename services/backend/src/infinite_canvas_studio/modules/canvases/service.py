@@ -7,18 +7,11 @@ from uuid import uuid4
 
 from sqlalchemy import func, select
 
+from infinite_canvas_studio.core.exceptions import NotFoundError, ValidationError
 from infinite_canvas_studio.infrastructure.database import DatabaseRuntime
 from infinite_canvas_studio.infrastructure.database.models import CanvasRecord, ProjectRecord
 
 CanvasKind = Literal["standard", "smart"]
-
-
-class ProjectNotFoundError(ValueError):
-    pass
-
-
-class CanvasNotFoundError(ValueError):
-    pass
 
 
 @dataclass(frozen=True)
@@ -54,9 +47,11 @@ class CanvasService:
     ) -> CanvasSummary:
         normalized_name = name.strip()
         if not normalized_name:
-            raise ValueError("画布名称不能为空。")
+            raise ValidationError("Canvas name cannot be empty.", code="invalid_canvas_name")
         if len(normalized_name) > 160:
-            raise ValueError("画布名称不能超过 160 个字符。")
+            raise ValidationError(
+                "Canvas name cannot exceed 160 characters.", code="invalid_canvas_name"
+            )
 
         with self._database.transaction() as session:
             self._require_project(session, project_id)
@@ -90,7 +85,10 @@ class CanvasService:
             )
         )
         if project is None:
-            raise ProjectNotFoundError("项目不存在或已被移至回收站。")
+            raise NotFoundError(
+                "Project does not exist or has been moved to recovery.",
+                code="project_not_found",
+            )
 
 
 def to_summary(record: CanvasRecord) -> CanvasSummary:
