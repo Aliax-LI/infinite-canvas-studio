@@ -7,7 +7,7 @@
   "main": "dist/main.js",
   "scripts": {
     "dev": "concurrently -k \"tsc -w --preserveWatchOutput\" \"wait-on dist/main.js tcp:5173 && cross-env ICS_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && esbuild src/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/preload.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "oxlint src",
     "test": "pnpm build && node --test dist/security.test.js",
@@ -21,6 +21,7 @@
     "cross-env": "^10.1.0",
     "electron": "^41.0.3",
     "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.1",
     "oxlint": "^1.74.0",
     "typescript": "~6.0.3",
     "wait-on": "^9.0.4"
