@@ -49,8 +49,12 @@ python -m infinite_canvas_studio.main
 
 ## 规格文档
 
+- [开发代理指南](AGENTS.md)
+- [项目上下文](CONTEXT.md)
+- [设计规范](DESIGN.md)
 - [产品需求文档](docs/PRD.md)
 - [技术架构](docs/TECHNICAL_ARCHITECTURE.md)
+- [实现对齐说明](docs/IMPLEMENTATION_ALIGNMENT.md)
 - [功能复刻矩阵](docs/FEATURE_PARITY_MATRIX.md)
 - [冻结基线清点](docs/BASELINE_INVENTORY.md)
 - [分阶段开发任务](docs/PHASED_TASKS.md)

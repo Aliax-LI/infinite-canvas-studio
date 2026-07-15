@@ -1,6 +1,6 @@
 # 冻结基线清点
 
-本清点以只读 submodule `reference/upstream-infinite-canvas` 的提交 `bc7efbde9ddab02f11abf738d7309b5689dbfa22` 为唯一来源，用于给功能矩阵提供可复查锚点。它记录入口和数量，不代表 82 项矩阵已经完成逐按钮验收。
+本清点以只读 submodule `reference/upstream-infinite-canvas` 的提交 `bc7efbde9ddab02f11abf738d7309b5689dbfa22` 为唯一来源，用于给功能矩阵提供可复查锚点。它记录入口和数量，不代表当前 88 项矩阵已经完成逐按钮验收。
 
 ## 规模快照
 
