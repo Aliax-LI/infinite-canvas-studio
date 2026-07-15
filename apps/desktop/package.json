@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json && esbuild src/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/preload.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "oxlint src",
-    "test": "pnpm build && node --test dist/security.test.js dist/library-config.test.js",
+    "test": "pnpm build && node --test dist/security.test.js dist/library-config.test.js dist/ipc-security.test.js",
     "package:win": "electron-builder --win nsis zip --x64 --publish never",
     "package:mac": "electron-builder --mac dmg zip --arm64 --publish never"
   },

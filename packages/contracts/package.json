@@ -12,5 +12,12 @@
   "devDependencies": {
     "oxlint": "^1.74.0",
     "typescript": "~6.0.3"
+  },
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
   }
 }

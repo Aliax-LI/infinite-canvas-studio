@@ -96,3 +96,12 @@ export interface TaskSummary {
   createdAt: string;
   completedAt: string | null;
 }
+
+export {
+  validateStorageDirectory,
+  validateHttpsUrl,
+  MAXIMUM_PATH_LENGTH,
+  MAXIMUM_URL_LENGTH,
+} from "./ipc-parameters";
+
+export type { ValidationResult } from "./ipc-parameters";

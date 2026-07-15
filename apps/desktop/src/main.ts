@@ -3,6 +3,7 @@ import type { IpcMainInvokeEvent } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { LibraryBootstrap, RuntimeDescriptor } from "@ics/contracts";
+import { validateHttpsUrl, validateStorageDirectory } from "@ics/contracts";
 
 import { desktopChannels } from "./channels";
 import {
@@ -10,11 +11,7 @@ import {
   loadLibraryBootstrap,
   saveLibraryRoot,
 } from "./library-config";
-import {
-  isTrustedRendererUrl,
-  parseHttpsExternalUrl,
-  requiresExternalConfirmation,
-} from "./security";
+import { isTrustedRendererUrl, requiresExternalConfirmation } from "./security";
 import { SidecarSupervisor } from "./sidecar";
 
 let mainWindow: BrowserWindow | null = null;
@@ -122,11 +119,16 @@ async function startConfiguredSidecar(): Promise<void> {
   await sidecar.start(libraryBootstrap.location.path);
 }
 
-function parseStorageDirectory(value: unknown): string | null {
-  if (typeof value !== "string" || value.length === 0 || value.length > 4_096) {
-    return null;
+/**
+ * Schema-validated wrapper for storage directory parameters.
+ * Rejects with a clear ProblemDetail-style error if validation fails.
+ */
+function parseStorageDirectory(value: unknown): string {
+  const result = validateStorageDirectory(value);
+  if (!result.ok) {
+    throw new Error(`无效的资料库路径：${result.code}`);
   }
-  return value;
+  return result.value;
 }
 
 function registerDesktopHandlers() {
@@ -162,7 +164,6 @@ function registerDesktopHandlers() {
     async (event, value: unknown) => {
       assertTrustedSender(event);
       const directory = parseStorageDirectory(value);
-      if (!directory) return null;
       try {
         return await inspectStorageDirectory(directory);
       } catch {
@@ -176,7 +177,6 @@ function registerDesktopHandlers() {
     async (event, value: unknown) => {
       assertTrustedSender(event);
       const directory = parseStorageDirectory(value);
-      if (!directory) throw new Error("无效的资料库路径。");
 
       const location = await saveLibraryRoot(
         getBootstrapConfigurationPath(),
@@ -193,8 +193,11 @@ function registerDesktopHandlers() {
     desktopChannels.openExternal,
     async (event, value: unknown) => {
       assertTrustedSender(event);
-      const url = parseHttpsExternalUrl(value);
-      if (!url) return false;
+      const parsed = validateHttpsUrl(value);
+      if (!parsed.ok) {
+        throw new Error(`无效的外部链接：${parsed.code}`);
+      }
+      const url = new URL(parsed.value);
 
       if (requiresExternalConfirmation(url)) {
         const { response } = await dialog.showMessageBox({
