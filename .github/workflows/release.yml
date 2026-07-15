@@ -56,6 +56,7 @@ jobs:
       - name: Run quality gates
         shell: bash
         run: |
+          pnpm format:check
           pnpm lint
           pnpm typecheck
           pnpm test

@@ -17,6 +17,9 @@ importers:
 
   apps/desktop:
     devDependencies:
+      '@ics/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
@@ -65,9 +68,6 @@ importers:
       react-dom:
         specifier: ^19.2.7
         version: 19.2.7(react@19.2.7)
-      shadcn:
-        specifier: ^4.13.0
-        version: 4.13.0(typescript@6.0.3)
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
@@ -93,6 +93,9 @@ importers:
       oxlint:
         specifier: ^1.71.0
         version: 1.74.0
+      shadcn:
+        specifier: ^4.13.0
+        version: 4.13.0(typescript@6.0.3)
       tailwindcss:
         specifier: ^4.3.2
         version: 4.3.2

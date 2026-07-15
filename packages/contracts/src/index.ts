@@ -1,8 +1,29 @@
+export const desktopProtocolVersion = 1 as const;
+
+export type DesktopChannel =
+  | "desktop:get-runtime"
+  | "desktop:select-storage-directory"
+  | "desktop:open-external";
+
+export type BackendRuntime =
+  | { status: "not-started" }
+  | {
+      status: "ready";
+      baseUrl: string;
+      sessionToken: string;
+    };
+
 export interface RuntimeDescriptor {
+  protocolVersion: typeof desktopProtocolVersion;
   appVersion: string;
   platform: "win32" | "darwin";
-  backendBaseUrl: string;
-  sessionToken: string;
+  backend: BackendRuntime;
+}
+
+export interface DesktopApi {
+  getRuntime(): Promise<RuntimeDescriptor>;
+  selectStorageDirectory(): Promise<string | null>;
+  openExternal(url: string): Promise<boolean>;
 }
 
 export interface ProblemDetail {

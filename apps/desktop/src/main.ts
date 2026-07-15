@@ -1,9 +1,18 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import type { IpcMainInvokeEvent } from "electron";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import type { RuntimeDescriptor } from "@ics/contracts";
 
 import { desktopChannels } from "./channels";
+import {
+  isTrustedRendererUrl,
+  parseHttpsExternalUrl,
+  requiresExternalConfirmation,
+} from "./security";
 
 let mainWindow: BrowserWindow | null = null;
+let rendererEntryUrl: string | null = null;
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -28,24 +37,55 @@ function createMainWindow() {
 
   mainWindow.once("ready-to-show", () => mainWindow?.show());
 
-  const rendererUrl = process.env.ICS_RENDERER_URL;
-  if (rendererUrl) {
-    void mainWindow.loadURL(rendererUrl);
-  } else {
-    void mainWindow.loadFile(
+  rendererEntryUrl =
+    process.env.ICS_RENDERER_URL ??
+    pathToFileURL(
       path.join(process.resourcesPath, "renderer/index.html"),
-    );
+    ).toString();
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.webContents.on("will-navigate", (event, targetUrl) => {
+    if (
+      !rendererEntryUrl ||
+      !isTrustedRendererUrl(targetUrl, rendererEntryUrl)
+    ) {
+      event.preventDefault();
+    }
+  });
+
+  void mainWindow.loadURL(rendererEntryUrl);
+}
+
+function assertTrustedSender(event: IpcMainInvokeEvent): void {
+  if (
+    !event.senderFrame ||
+    !rendererEntryUrl ||
+    !isTrustedRendererUrl(event.senderFrame.url, rendererEntryUrl)
+  ) {
+    throw new Error("拒绝来自非受信任页面的桌面能力请求。");
   }
 }
 
-function registerDesktopHandlers() {
-  ipcMain.handle(desktopChannels.getRuntime, () => ({
-    appVersion: app.getVersion(),
-    platform: process.platform,
-    backendStatus: "not-started",
-  }));
+function getSupportedPlatform(): RuntimeDescriptor["platform"] {
+  if (process.platform === "darwin" || process.platform === "win32") {
+    return process.platform;
+  }
+  throw new Error(`不支持的平台：${process.platform}`);
+}
 
-  ipcMain.handle(desktopChannels.selectStorageDirectory, async () => {
+function registerDesktopHandlers() {
+  ipcMain.handle(desktopChannels.getRuntime, (event) => {
+    assertTrustedSender(event);
+    return {
+      protocolVersion: 1,
+      appVersion: app.getVersion(),
+      platform: getSupportedPlatform(),
+      backend: { status: "not-started" },
+    } satisfies RuntimeDescriptor;
+  });
+
+  ipcMain.handle(desktopChannels.selectStorageDirectory, async (event) => {
+    assertTrustedSender(event);
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory", "createDirectory"],
     });
@@ -54,10 +94,23 @@ function registerDesktopHandlers() {
 
   ipcMain.handle(
     desktopChannels.openExternal,
-    async (_event, value: unknown) => {
-      if (typeof value !== "string") return false;
-      const url = new URL(value);
-      if (url.protocol !== "https:") return false;
+    async (event, value: unknown) => {
+      assertTrustedSender(event);
+      const url = parseHttpsExternalUrl(value);
+      if (!url) return false;
+
+      if (requiresExternalConfirmation(url)) {
+        const { response } = await dialog.showMessageBox({
+          type: "warning",
+          message: `即将在系统浏览器中打开 ${url.hostname}`,
+          detail: url.toString(),
+          buttons: ["取消", "继续打开"],
+          defaultId: 0,
+          cancelId: 0,
+        });
+        if (response !== 1) return false;
+      }
+
       await shell.openExternal(url.toString());
       return true;
     },

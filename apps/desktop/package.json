@@ -10,10 +10,12 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "oxlint src",
+    "test": "pnpm build && node --test dist/security.test.js",
     "package:win": "electron-builder --win nsis zip --x64 --publish never",
     "package:mac": "electron-builder --mac dmg zip --arm64 --publish never"
   },
   "devDependencies": {
+    "@ics/contracts": "workspace:*",
     "@types/node": "^24.13.3",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
@@ -32,6 +34,7 @@
     },
     "files": [
       "dist/**/*",
+      "!dist/**/*.test.js",
       "package.json"
     ],
     "extraResources": [

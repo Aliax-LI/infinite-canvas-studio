@@ -13,7 +13,7 @@
 
 - [x] 建立 pnpm monorepo、Electron、React/shadcn、Python sidecar 与扩展骨架。
 - [x] 固定产品需求、技术架构、功能矩阵和阶段任务。
-- [ ] 以 submodule 固定 `hero8152/Infinite-Canvas@bc7efbd`，标记为只读参考。
+- [x] 以 submodule 固定 `hero8152/Infinite-Canvas@bc7efbd`，标记为只读参考。
 - [ ] 建立 Windows/macOS CI、Release 构建、SHA-256 与制品保留。
 - [ ] 建立第三方许可证清单和上游来源追踪规则。
 - [ ] 完成基线二次审计，把所有页面、节点、路由、快捷键和插件命令映射到矩阵。

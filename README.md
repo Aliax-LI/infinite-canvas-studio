@@ -52,8 +52,9 @@ python -m infinite_canvas_studio.main
 - [产品需求文档](docs/PRD.md)
 - [技术架构](docs/TECHNICAL_ARCHITECTURE.md)
 - [功能复刻矩阵](docs/FEATURE_PARITY_MATRIX.md)
+- [冻结基线清点](docs/BASELINE_INVENTORY.md)
 - [分阶段开发任务](docs/PHASED_TASKS.md)
 
 ## 授权与署名
 
-本项目是非官方衍生项目，与原作者不存在官方隶属关系。项目继承上游“禁止商业封装、衍生软件保持源码公开并注明来源作者”的限制；详见 [LICENSE](LICENSE) 与 [NOTICE.md](NOTICE.md)。这是一份 source-available 非商业授权，不属于 OSI 定义的开源许可证。
+本项目是非官方衍生项目，与原作者不存在官方隶属关系。项目继承上游“禁止商业封装、衍生软件保持源码公开并注明来源作者”的限制；详见 [LICENSE](LICENSE)、[NOTICE.md](NOTICE.md) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。这是一份 source-available 非商业授权，不属于 OSI 定义的开源许可证。
